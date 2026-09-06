@@ -36,52 +36,91 @@ from app.core.security import hash_password
 
 # ── Demo Stocks ──────────────────────────────────────────────────────────────
 DEMO_STOCKS = [
-    {"symbol": "NVDA", "company_name": "NVIDIA Corporation",        "sector": "Technology",    "sector_etf": "XLK", "exchange": "NASDAQ"},
-    {"symbol": "TSLA", "company_name": "Tesla, Inc.",                "sector": "Consumer Discretionary", "sector_etf": "XLY", "exchange": "NASDAQ"},
-    {"symbol": "AAPL", "company_name": "Apple Inc.",                 "sector": "Technology",    "sector_etf": "XLK", "exchange": "NASDAQ"},
-    {"symbol": "MSFT", "company_name": "Microsoft Corporation",      "sector": "Technology",    "sector_etf": "XLK", "exchange": "NASDAQ"},
-    {"symbol": "GOOGL","company_name": "Alphabet Inc.",              "sector": "Communication Services", "sector_etf": "XLC", "exchange": "NASDAQ"},
-    {"symbol": "META", "company_name": "Meta Platforms, Inc.",       "sector": "Communication Services", "sector_etf": "XLC", "exchange": "NASDAQ"},
-    {"symbol": "AMZN", "company_name": "Amazon.com, Inc.",           "sector": "Consumer Discretionary", "sector_etf": "XLY", "exchange": "NASDAQ"},
-    {"symbol": "AMD",  "company_name": "Advanced Micro Devices",     "sector": "Technology",    "sector_etf": "XLK", "exchange": "NASDAQ"},
+    {"symbol": "RELIANCE.NS", "company_name": "Reliance Industries Ltd", "sector": "Energy", "sector_etf": "^NSEI", "exchange": "NSE", "currency": "INR"},
+    {"symbol": "TCS.NS",      "company_name": "Tata Consultancy Services", "sector": "Technology", "sector_etf": "^NSEI", "exchange": "NSE", "currency": "INR"},
+    {"symbol": "INFY.NS",     "company_name": "Infosys Limited", "sector": "Technology", "sector_etf": "^NSEI", "exchange": "NSE", "currency": "INR"},
+    {"symbol": "HDFCBANK.NS", "company_name": "HDFC Bank Limited", "sector": "Financials", "sector_etf": "^NSEI", "exchange": "NSE", "currency": "INR"},
+    {"symbol": "TATAMOTORS.NS","company_name": "Tata Motors Limited", "sector": "Consumer Discretionary", "sector_etf": "^NSEI", "exchange": "NSE", "currency": "INR"},
+    {"symbol": "NVDA", "company_name": "NVIDIA Corporation",        "sector": "Technology",    "sector_etf": "XLK", "exchange": "NASDAQ", "currency": "USD"},
+    {"symbol": "TSLA", "company_name": "Tesla, Inc.",                "sector": "Consumer Discretionary", "sector_etf": "XLY", "exchange": "NASDAQ", "currency": "USD"},
+    {"symbol": "AAPL", "company_name": "Apple Inc.",                 "sector": "Technology",    "sector_etf": "XLK", "exchange": "NASDAQ", "currency": "USD"},
+    {"symbol": "MSFT", "company_name": "Microsoft Corporation",      "sector": "Technology",    "sector_etf": "XLK", "exchange": "NASDAQ", "currency": "USD"},
+    {"symbol": "GOOGL","company_name": "Alphabet Inc.",              "sector": "Communication Services", "sector_etf": "XLC", "exchange": "NASDAQ", "currency": "USD"},
 ]
 
 # ── Checkpoint prices (what user "last saw") ─────────────────────────────────
 CHECKPOINT_PRICES = {
+    "RELIANCE.NS": 2980.50,
+    "TCS.NS": 4150.00,
+    "INFY.NS": 1820.00,
+    "HDFCBANK.NS": 1640.00,
+    "TATAMOTORS.NS": 985.00,
     "NVDA": 183.21,
     "TSLA": 321.40,
     "AAPL": 240.90,
     "MSFT": 415.30,
     "GOOGL": 182.75,
-    "META": 531.20,
-    "AMZN": 198.60,
-    "AMD":   175.40,
 }
 
 # ── Current "after events" prices ────────────────────────────────────────────
 CURRENT_PRICES = {
+    "RELIANCE.NS": 3120.00,  # +4.68% — MAJOR (New green energy deal)
+    "TCS.NS": 4185.00,       # +0.84% — NORMAL
+    "INFY.NS": 1745.00,      # -4.12% — IMPORTANT (Q3 margin guidance)
+    "HDFCBANK.NS": 1645.00,  # +0.30% — NORMAL
+    "TATAMOTORS.NS": 1045.00,# +6.09% — MAJOR (Record EV sales)
     "NVDA": 174.30,  # -5.2% — MAJOR
     "TSLA": 341.20,  # +6.1% — MAJOR
     "AAPL": 241.10,  # +0.08% — IMPORTANT (earnings approaching)
     "MSFT": 416.50,  # +0.3% — NORMAL
     "GOOGL": 183.20, # +0.2% — NORMAL
-    "META":  532.10, # +0.2% — NORMAL
-    "AMZN":  199.10, # +0.3% — NORMAL
-    "AMD":   176.80, # +0.8% — NORMAL
 }
 
 CURRENT_VOLUMES = {
-    "NVDA": 89_000_000,   # 2.8× normal — spike
-    "TSLA": 65_000_000,   # 1.9× normal — elevated
-    "AAPL": 35_000_000,   # 1.0× normal
-    "MSFT": 22_000_000,   # 0.9× normal
-    "GOOGL":18_000_000,   # 0.9× normal
-    "META": 14_000_000,   # 1.0× normal
-    "AMZN": 41_000_000,   # 1.1× normal
-    "AMD":  32_000_000,   # 1.0× normal
+    "RELIANCE.NS": 15_000_000,
+    "TCS.NS": 2_500_000,
+    "INFY.NS": 12_000_000,
+    "HDFCBANK.NS": 8_000_000,
+    "TATAMOTORS.NS": 25_000_000,
+    "NVDA": 89_000_000,
+    "TSLA": 65_000_000,
+    "AAPL": 35_000_000,
+    "MSFT": 22_000_000,
+    "GOOGL":18_000_000,
 }
 
 DEMO_NEWS = [
+    {
+        "symbol": "RELIANCE.NS",
+        "title": "Reliance Industries announces ₹75,000 crore expansion into Green Energy & AI Data Centers",
+        "summary": "Mukesh Ambani announced a major investment in solar gigafactories and AI infrastructure across Gujarat.",
+        "source": "Economic Times",
+        "event_type": "STRATEGIC",
+        "sentiment": "POSITIVE",
+        "impact_score": 0.89,
+        "published_ago_hours": 4,
+    },
+    {
+        "symbol": "TATAMOTORS.NS",
+        "title": "Tata Motors EV division crosses 150,000 unit milestone, exports surge 45%",
+        "summary": "Tata Motors reported record quarterly electric vehicle sales led by Punch EV and Nexon EV.",
+        "source": "Moneycontrol",
+        "event_type": "SALES",
+        "sentiment": "POSITIVE",
+        "impact_score": 0.85,
+        "published_ago_hours": 8,
+    },
+    {
+        "symbol": "INFY.NS",
+        "title": "Infosys revises FY26 margin guidance downwards amidst US tech spend slowdown",
+        "summary": "Infosys management cautioned regarding discretionary IT spending in North American financial sector.",
+        "source": "Business Standard",
+        "event_type": "GUIDANCE",
+        "sentiment": "NEGATIVE",
+        "impact_score": 0.78,
+        "published_ago_hours": 6,
+    },
+
     {
         "symbol": "NVDA",
         "title": "NVIDIA faces expanded export restrictions on AI chips to China and Middle East",

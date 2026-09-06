@@ -1,10 +1,11 @@
 import { useNavigate, NavLink } from 'react-router-dom'
 import { useAuthStore } from '../../stores/authStore'
-import { LayoutDashboard, ListChecks, LogOut, Zap } from 'lucide-react'
+import { LayoutDashboard, ListChecks, LogOut, Zap, Sparkles } from 'lucide-react'
 
 const navItems = [
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/watchlist',  icon: ListChecks,      label: 'Watchlist' },
+  { to: '/dashboard',      icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/watchlist',      icon: ListChecks,      label: 'Watchlist' },
+  { to: '/range-analysis', icon: Sparkles,        label: 'AI Cause Analyzer' },
 ]
 
 export function Sidebar() {

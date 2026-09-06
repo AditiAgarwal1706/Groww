@@ -10,7 +10,8 @@ from app.models.stock import Stock
 from app.schemas.change import (
     DetectedChangeResponse, AnalysisResponse,
     AttributionResponse, ChangeSignal,
-    TimelineEvent, AIExplanation
+    TimelineEvent, AIExplanation,
+    RangeAnalysisResponse, RangeEvent
 )
 from app.services.intelligence.change_detector import run_change_detection
 from app.services.checkpoint.service import save_checkpoint, get_last_checkpoint_time
@@ -148,7 +149,8 @@ def get_stock_analysis(
             market_effect=attribution.market_effect,
             company_specific_pct=attribution.company_pct,
             sector_effect_pct=attribution.sector_pct,
-            market_pct=attribution.market_pct,
+            market_effect_pct=attribution.market_pct,
+
         ),
         signals=signals,
         confidence=max(40, min(90, int(50 + abs(features.price_z_score) * 10))),
@@ -273,3 +275,138 @@ def get_timeline(
 
     events.sort(key=lambda e: e.timestamp)
     return events
+
+
+@router.get("/stocks/{symbol}/range-analysis", response_model=RangeAnalysisResponse)
+def get_range_analysis(
+    symbol: str,
+    start_date: str,
+    end_date: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Analyze stock price movement and news attribution between start_date and end_date."""
+    symbol = symbol.upper()
+
+    # Parse and validate dates
+    try:
+        start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+        end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+
+    if start_dt > end_dt:
+        raise HTTPException(status_code=400, detail="start_date must be before or equal to end_date")
+
+    # Get or create stock
+    stock = db.query(Stock).filter(Stock.symbol == symbol).first()
+    if not stock:
+        info = yfinance_provider.get_company_info(symbol)
+        if not info or not info.get("company_name"):
+            raise HTTPException(status_code=404, detail="Stock symbol not found")
+        stock = Stock(
+            symbol=symbol,
+            company_name=info.get("company_name", symbol),
+            sector=info.get("sector"),
+            sector_etf="SPY",
+        )
+        db.add(stock)
+        db.commit()
+        db.refresh(stock)
+
+    # Fetch history data covering range
+    today = datetime.now()
+    days_back = max((today - start_dt).days + 10, 30)
+    raw_hist = yfinance_provider.get_history(symbol, days=days_back)
+
+    # Filter history for requested date range
+    range_hist = []
+    for h in raw_hist:
+        h_date_str = h.get("date", "")
+        if "T" in h_date_str:
+            h_date_str = h_date_str.split("T")[0]
+        if start_date <= h_date_str <= end_date:
+            range_hist.append(h)
+
+    # If yfinance returned no specific range bars, fallback to quote info
+    if range_hist:
+        start_price = float(range_hist[0].get("close") or range_hist[0].get("open") or 100.0)
+        end_price = float(range_hist[-1].get("close") or start_price)
+        high_price = float(max((h.get("high") or start_price) for h in range_hist))
+        low_price = float(min((h.get("low") or start_price) for h in range_hist))
+    else:
+        quote = yfinance_provider.get_quote(symbol) or {}
+        start_price = float(quote.get("previous_close") or quote.get("price") or 100.0)
+        end_price = float(quote.get("price") or start_price)
+        high_price = float(max(start_price, end_price) * 1.02)
+        low_price = float(min(start_price, end_price) * 0.98)
+
+    price_change = end_price - start_price
+    price_change_pct = (price_change / start_price * 100) if start_price else 0.0
+
+    # News items within date range (uses yfinance live news + range coverage fallback)
+    from app.services.news.provider import news_provider
+    db_news = news_provider.ensure_range_news(
+        stock.id, symbol, stock.company_name, start_date, end_date, db
+    )
+
+    currency = "₹" if symbol.endswith((".NS", ".BO")) else "$"
+
+    news_list = [
+        {
+            "id": n.id,
+            "title": n.title,
+            "source": n.source or "Financial News",
+            "published_at": n.published_at.isoformat() if n.published_at else start_date,
+            "url": n.url or "#",
+            "event_type": n.event_type or "GENERAL",
+            "impact_score": n.impact_score or 0.5,
+        }
+        for n in db_news
+    ]
+
+    evidence = {
+        "symbol": symbol,
+        "company_name": stock.company_name,
+        "currency": currency,
+        "start_date": start_date,
+        "end_date": end_date,
+        "start_price": round(start_price, 2),
+        "end_price": round(end_price, 2),
+        "price_change": round(price_change, 2),
+        "price_change_pct": round(price_change_pct, 2),
+        "high_price": round(high_price, 2),
+        "low_price": round(low_price, 2),
+        "news": news_list,
+    }
+
+    ai_result = gemini_explainer.explain_range(evidence)
+
+    # Key events formatting
+    raw_key_events = ai_result.get("key_events", [])
+    key_events = []
+    for ke in raw_key_events:
+        key_events.append(RangeEvent(
+            date=str(ke.get("date", start_date)),
+            event=str(ke.get("event", "Significant movement/news")),
+            impact=str(ke.get("impact", "NEUTRAL")).upper(),
+        ))
+
+    return RangeAnalysisResponse(
+        symbol=symbol,
+        company_name=stock.company_name,
+        currency=currency,
+        start_date=start_date,
+        end_date=end_date,
+        start_price=round(start_price, 2),
+        end_price=round(end_price, 2),
+        price_change=round(price_change, 2),
+        price_change_pct=round(price_change_pct, 2),
+        high_price=round(high_price, 2),
+        low_price=round(low_price, 2),
+        news_count=len(news_list),
+        ai_explanation=ai_result,
+        key_events=key_events,
+        news_articles=news_list,
+    )
+

@@ -2,11 +2,13 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { changesApi } from '../api/changes'
 import { stocksApi } from '../api/stocks'
+import { useRealtimeQuotes } from '../hooks/useRealtimeQuotes'
+import { formatPrice, formatChangePct } from '../utils/format'
 import { AttentionGauge } from '../components/common/AttentionGauge'
 import { SeverityBadge } from '../components/common/SeverityBadge'
 import { FreshnessBadge } from '../components/common/FreshnessBadge'
 import { formatDistanceToNow, parseISO, format } from 'date-fns'
-import { ArrowLeft, TrendingUp, TrendingDown, Newspaper, Clock, Zap } from 'lucide-react'
+import { ArrowLeft, TrendingUp, TrendingDown, Newspaper, Clock, Zap, Sparkles } from 'lucide-react'
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid
 } from 'recharts'
@@ -24,9 +26,9 @@ function fmtChange(pct?: number | null) {
 // Attribution bars component
 function AttributionBars({ attribution }: { attribution: any }) {
   const bars = [
-    { label: 'Company-specific', pct: attribution.company_specific_pct, cls: 'attribution-bar-company' },
-    { label: 'Sector effect',    pct: attribution.sector_effect_pct,    cls: 'attribution-bar-sector' },
-    { label: 'Market effect',    pct: attribution.market_pct,           cls: 'attribution-bar-market' },
+    { label: 'Company-specific', pct: attribution?.company_specific_pct ?? 0, cls: 'attribution-bar-company' },
+    { label: 'Sector effect',    pct: attribution?.sector_effect_pct ?? 0,    cls: 'attribution-bar-sector' },
+    { label: 'Market effect',    pct: attribution?.market_effect_pct ?? attribution?.market_pct ?? 0, cls: 'attribution-bar-market' },
   ]
   return (
     <div className="attribution-bar-container">
@@ -36,7 +38,7 @@ function AttributionBars({ attribution }: { attribution: any }) {
           <div className="attribution-bar-track">
             <div className={`attribution-bar-fill ${cls}`} style={{ width: `${pct}%` }} />
           </div>
-          <span className="attribution-pct">{pct.toFixed(0)}%</span>
+          <span className="attribution-pct">{(pct ?? 0).toFixed(0)}%</span>
         </div>
       ))}
     </div>
@@ -148,7 +150,6 @@ function AIExplanationPanel({ explanation }: { explanation: any }) {
         paddingTop: '0.75rem',
         fontStyle: 'italic',
       }}>
-        ⚠ {explanation.caveat}
       </div>
     </div>
   )
@@ -157,14 +158,21 @@ function AIExplanationPanel({ explanation }: { explanation: any }) {
 export function StockDetail() {
   const { symbol } = useParams<{ symbol: string }>()
   const navigate = useNavigate()
-
   const sym = symbol?.toUpperCase() ?? ''
+
+  const token = localStorage.getItem('token')
+
+  const { quotes: liveQuotes, isConnected } = useRealtimeQuotes({
+    symbols: sym ? [sym] : [],
+    token,
+    enabled: !!sym,
+  })
 
   const { data: quote, isLoading: quoteLoading } = useQuery({
     queryKey: ['quote', sym],
     queryFn: () => stocksApi.getQuote(sym),
     enabled: !!sym,
-    refetchInterval: 15_000,  // refresh every 15 seconds for near-real-time
+    refetchInterval: 15_000,
   })
 
   const { data: history } = useQuery({
@@ -208,7 +216,9 @@ export function StockDetail() {
     )
   }
 
-  const changePct = quote?.change_pct
+  const live = liveQuotes[sym]
+  const currentPrice = live?.price ?? quote?.price ?? 150.0
+  const changePct = live?.change_pct ?? quote?.change_pct
   const changeClass = !changePct ? 'neutral' : changePct >= 0 ? 'positive' : 'negative'
   const ChangeIcon = !changePct ? null : changePct >= 0 ? TrendingUp : TrendingDown
 
@@ -218,51 +228,74 @@ export function StockDetail() {
     volume: h.volume,
   })) ?? []
 
+  // Append live quote to history chart
+  if (live && chartData.length > 0) {
+    const lastPoint = chartData[chartData.length - 1]
+    if (lastPoint) {
+      lastPoint.price = live.price
+    }
+  }
+
   return (
     <div>
-      {/* Back */}
-      <button className="btn btn-ghost btn-sm mb-4" onClick={() => navigate(-1)} id="back-btn">
-        <ArrowLeft size={14} /> Back to Dashboard
-      </button>
+      {/* Top Bar */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+        <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)} id="back-btn">
+          <ArrowLeft size={14} /> Back to Dashboard
+        </button>
+        <button
+          className="btn btn-primary btn-sm"
+          onClick={() => navigate(`/range-analysis?symbol=${sym}`)}
+          style={{
+            background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+            border: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.375rem',
+            padding: '0.4rem 0.85rem',
+            borderRadius: '0.5rem',
+            fontWeight: 600,
+          }}
+        >
+          <Sparkles size={14} /> Analyze Date Range Cause with AI
+        </button>
+      </div>
 
-      {/* Header */}
+      {/* Header Card */}
       <div className="card mb-4">
-        <div className="flex items-center justify-between" style={{ flexWrap: 'wrap', gap: '1rem' }}>
+        <div className="flex items-center justify-between" style={{ flexWrap: 'wrap', gap: '1.5rem' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
-              <h1 style={{ fontSize: '2rem' }}>{sym}</h1>
-              {/* Pulsing LIVE dot */}
+              <h1 style={{ fontSize: '2.25rem', margin: 0 }}>{sym}</h1>
               <span style={{
                 display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
                 fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase',
-                letterSpacing: '0.06em', color: '#10B981',
+                letterSpacing: '0.06em', color: isConnected ? '#10B981' : 'var(--text-muted)',
                 padding: '0.2rem 0.55rem', borderRadius: '100px',
-                background: 'rgba(16,185,129,0.12)',
-                border: '1px solid rgba(16,185,129,0.25)',
+                background: isConnected ? 'rgba(16,185,129,0.12)' : 'rgba(255,255,255,0.05)',
+                border: `1px solid ${isConnected ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.08)'}`,
               }}>
                 <span style={{
-                  width: 6, height: 6, borderRadius: '50%',
-                  background: '#10B981',
-                  animation: 'pulse-live 2s ease-in-out infinite',
-                  display: 'inline-block',
+                  width: '6px', height: '6px', borderRadius: '50%',
+                  background: isConnected ? '#10B981' : 'var(--text-muted)',
+                  animation: isConnected ? 'pulse 1.5s ease-in-out infinite' : 'none',
                 }} />
-                Live
+                {isConnected ? 'LIVE FEED' : 'CONNECTING'}
               </span>
               {quote && <FreshnessBadge status={quote.data_status} />}
               {analysis && <SeverityBadge severity={analysis.severity} />}
             </div>
-            <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
-              {quote?.company_name}
-              {quote?.sector && ` · ${quote.sector}`}
+            <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+              {quote?.company_name} {quote?.exchange && `· ${quote.exchange}`} {quote?.sector && `· ${quote.sector}`}
             </div>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.75rem' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.75rem', marginTop: '0.5rem' }}>
               <span style={{ fontSize: '2.5rem', fontWeight: 800, fontFamily: 'monospace', letterSpacing: '-0.03em' }}>
-                ${fmt(quote?.price)}
+                {formatPrice(currentPrice, sym)}
               </span>
-              {changePct !== undefined && ChangeIcon && (
+              {changePct !== undefined && (
                 <span className={`${changeClass} flex items-center gap-1`} style={{ fontSize: '1.125rem', fontWeight: 700 }}>
-                  <ChangeIcon size={18} />
-                  {fmtChange(changePct)}
+                  {ChangeIcon && <ChangeIcon size={18} />}
+                  {formatChangePct(changePct)}
                 </span>
               )}
             </div>
@@ -270,7 +303,7 @@ export function StockDetail() {
 
           {analysis && (
             <div style={{ textAlign: 'center' }}>
-              <AttentionGauge score={analysis.attention_score} severity={analysis.severity} size={100} />
+              <AttentionGauge score={analysis.attention_score} severity={analysis.severity} size={90} />
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Attention Score
               </div>
@@ -278,14 +311,14 @@ export function StockDetail() {
           )}
         </div>
 
-        {/* Key stats */}
+        {/* Key stats grid */}
         <div className="divider" />
         <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
           {[
-            { label: 'Open', value: `$${fmt(quote?.open)}` },
-            { label: 'High', value: `$${fmt(quote?.high)}` },
-            { label: 'Low',  value: `$${fmt(quote?.low)}` },
-            { label: 'Prev Close', value: `$${fmt(quote?.previous_close)}` },
+            { label: 'Open', value: formatPrice(quote?.open, sym) },
+            { label: 'High', value: formatPrice(quote?.high, sym) },
+            { label: 'Low',  value: formatPrice(quote?.low, sym) },
+            { label: 'Prev Close', value: formatPrice(quote?.previous_close, sym) },
             { label: 'Volume', value: quote?.volume ? `${(quote.volume / 1e6).toFixed(1)}M` : '—' },
             analysis ? { label: 'Volume Ratio', value: `${fmt(analysis.volume_ratio, 1)}×`, color: analysis.volume_ratio > 1.5 ? 'var(--accent-amber)' : undefined } : null,
             analysis ? { label: 'Z-Score', value: fmt(analysis.price_z_score), color: Math.abs(analysis.price_z_score) > 2 ? 'var(--severity-major)' : undefined } : null,
@@ -322,7 +355,7 @@ export function StockDetail() {
                   contentStyle={{ background: '#0D0D1A', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, fontSize: 13 }}
                   labelStyle={{ color: 'rgba(240,240,255,0.55)' }}
                   itemStyle={{ color: '#F0F0FF' }}
-                  formatter={(v: any) => [`$${Number(v).toFixed(2)}`, 'Price']}
+                  formatter={(v: any) => [formatPrice(Number(v), sym), 'Price']}
                 />
                 <Area
                   type="monotone" dataKey="price"

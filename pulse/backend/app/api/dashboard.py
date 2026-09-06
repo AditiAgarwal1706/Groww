@@ -57,11 +57,16 @@ def get_dashboard(
         latest_snap = (
             db.query(MarketSnapshot)
             .filter(MarketSnapshot.stock_id.in_([s.id for s in tracked_stocks]))
-            .order_by(MarketSnapshot.collected_at.desc())
+            .order_by(MarketSnapshot.timestamp.desc())
             .first()
         )
-        is_stale = not latest_snap or (datetime.now(timezone.utc) - latest_snap.collected_at) > timedelta(minutes=15)
+        collected_time = (latest_snap.collected_at or latest_snap.timestamp) if latest_snap else None
+        if collected_time and collected_time.tzinfo is None:
+            collected_time = collected_time.replace(tzinfo=timezone.utc)
+        is_stale = not latest_snap or not collected_time or (datetime.now(timezone.utc) - collected_time) > timedelta(minutes=15)
         if sync_live or is_stale:
+
+
             try:
                 market_service.sync_live_quotes_for_stocks(tracked_stocks, db)
             except Exception as e:
@@ -98,7 +103,8 @@ def get_dashboard(
         snap = (
             db.query(MarketSnapshot)
             .filter(MarketSnapshot.stock_id == stock.id)
-            .order_by(MarketSnapshot.collected_at.desc())
+            .order_by(MarketSnapshot.timestamp.desc())
+
             .first()
         )
 

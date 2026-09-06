@@ -69,6 +69,31 @@ class AIExplanation(BaseModel):
     caveat: str
 
 
+class RangeEvent(BaseModel):
+    date: str
+    event: str
+    impact: str  # POSITIVE, NEGATIVE, NEUTRAL
+
+
+class RangeAnalysisResponse(BaseModel):
+    symbol: str
+    company_name: str
+    currency: str
+    start_date: str
+    end_date: str
+    start_price: float
+    end_price: float
+    price_change: float
+    price_change_pct: float
+    high_price: float
+    low_price: float
+    news_count: int
+    ai_explanation: Dict[str, Any]
+    key_events: List[RangeEvent]
+    news_articles: List[Dict[str, Any]]
+
+
+
 class DashboardStock(BaseModel):
     symbol: str
     company_name: str

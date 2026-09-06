@@ -8,6 +8,7 @@ import { Register } from './pages/Register'
 import { Dashboard } from './pages/Dashboard'
 import { WatchlistPage } from './pages/WatchlistPage'
 import { StockDetail } from './pages/StockDetail'
+import { RangeAnalysisPage } from './pages/RangeAnalysisPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -39,6 +40,7 @@ export default function App() {
           {/* Protected */}
           <Route path="/dashboard" element={<AppLayout><Dashboard /></AppLayout>} />
           <Route path="/watchlist" element={<AppLayout><WatchlistPage /></AppLayout>} />
+          <Route path="/range-analysis" element={<AppLayout><RangeAnalysisPage /></AppLayout>} />
           <Route path="/stocks/:symbol" element={<AppLayout><StockDetail /></AppLayout>} />
 
           {/* Default */}

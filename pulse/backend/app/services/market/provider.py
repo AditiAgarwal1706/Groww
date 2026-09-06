@@ -216,22 +216,29 @@ class YFinanceProvider:
                         company_name = symbol
                 except Exception:
                     pass
+            is_indian = symbol.endswith(".NS") or symbol.endswith(".BO") or info.get("currency") == "INR" or info.get("exchange") in ["NSI", "BSE", "NSE"]
+            currency = "INR" if is_indian else info.get("currency", "USD")
+            default_benchmark = "^NSEI" if is_indian else "SPY"
+            exchange = "NSE" if symbol.endswith(".NS") else ("BSE" if symbol.endswith(".BO") else info.get("exchange", "NASDAQ"))
+
             return {
                 "company_name": company_name,
-                "exchange": info.get("exchange", "NASDAQ"),
+                "exchange": exchange,
                 "sector": sector,
-                "sector_etf": SECTOR_ETF_MAP.get(sector, "SPY"),
-                "currency": info.get("currency", "USD"),
+                "sector_etf": SECTOR_ETF_MAP.get(sector, default_benchmark),
+                "currency": currency,
             }
         except Exception as e:
             logger.error(f"yfinance info error for {symbol}: {e}")
+            is_indian = symbol.endswith(".NS") or symbol.endswith(".BO")
             return {
                 "company_name": symbol,
-                "exchange": "US",
+                "exchange": "NSE" if symbol.endswith(".NS") else ("BSE" if symbol.endswith(".BO") else "US"),
                 "sector": "General",
-                "sector_etf": "SPY",
-                "currency": "USD",
+                "sector_etf": "^NSEI" if is_indian else "SPY",
+                "currency": "INR" if is_indian else "USD",
             }
+
 
 
 yfinance_provider = YFinanceProvider()

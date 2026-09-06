@@ -27,7 +27,7 @@ export function Dashboard() {
   })
 
   // Real-time WebSocket quotes — enabled only once we have a watchlist id
-  const { quotes: liveQuotes, isConnected, lastUpdated } = useRealtimeQuotes({
+  const { quotes: liveQuotes, isConnected, lastUpdated, marketStatus } = useRealtimeQuotes({
     watchlistId: dashboard?.watchlist_id,
     token,
     enabled: !!dashboard?.watchlist_id,
@@ -208,7 +208,24 @@ export function Dashboard() {
             </button>
           </div>
         ) : (
-          <WatchlistTable stocks={dashboard.watchlist} liveQuotes={liveQuotes} />
+          <>
+            {marketStatus && marketStatus !== 'LIVE' && marketStatus !== 'UNKNOWN' && (
+              <div className={`market-status-banner ${
+                marketStatus === 'PRE_MARKET' ? 'premarket'
+                : marketStatus === 'AFTER_HOURS' ? 'afterhours'
+                : 'closed'
+              }`}>
+                <span>
+                  {marketStatus === 'PRE_MARKET'
+                    ? '🕘 Pre-market session — prices reflect last pre-market data'
+                    : marketStatus === 'AFTER_HOURS'
+                    ? '🌙 After-hours session — extended-hours prices'
+                    : '📴 Markets closed — showing last closing prices (real data from yfinance, not simulated)'}
+                </span>
+              </div>
+            )}
+            <WatchlistTable stocks={dashboard.watchlist} liveQuotes={liveQuotes} />
+          </>
         )}
       </section>
     </div>

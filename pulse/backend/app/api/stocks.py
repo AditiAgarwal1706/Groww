@@ -30,7 +30,7 @@ def search_stocks(
     symbol_upper = q_clean.upper()
     exact_match = any(s.symbol == symbol_upper for s in results)
 
-    if not exact_match and len(q_clean) <= 12 and q_clean.isalnum() or "-" in q_clean or "." in q_clean:
+    if not exact_match and (q_clean.isalnum() or "-" in q_clean or "." in q_clean or "^" in q_clean):
         try:
             info = yfinance_provider.get_company_info(symbol_upper)
             if info and info.get("company_name") and info["company_name"] != symbol_upper:

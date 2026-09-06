@@ -38,10 +38,38 @@ export interface NewsItem {
   published_at: string; sentiment?: string; impact_score: number; event_type?: string;
 }
 
+export interface RangeEvent {
+  date: string;
+  event: string;
+  impact: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL';
+}
+
+export interface RangeAnalysisResponse {
+  symbol: string;
+  company_name: string;
+  currency: string;
+  start_date: string;
+  end_date: string;
+  start_price: number;
+  end_price: number;
+  price_change: number;
+  price_change_pct: number;
+  high_price: number;
+  low_price: number;
+  news_count: number;
+  ai_explanation: {
+    summary: string;
+    drivers: { factor: string; weight: number; description: string }[];
+    confidence: number;
+    caveat: string;
+  };
+  key_events: RangeEvent[];
+  news_articles: NewsItem[];
+}
+
 export const changesApi = {
   getDashboard: (syncLive = false) =>
     api.get<DashboardResponse>('/api/dashboard', { params: { sync_live: syncLive } }).then(r => r.data),
-
 
   getChanges: (watchlistId: number) =>
     api.get<DetectedChange[]>(`/api/watchlists/${watchlistId}/changes`).then(r => r.data),
@@ -63,4 +91,11 @@ export const changesApi = {
 
   getNews: (symbol: string) =>
     api.get<NewsItem[]>(`/api/stocks/${symbol}/news`).then(r => r.data),
+
+  getRangeAnalysis: (symbol: string, startDate: string, endDate: string) =>
+    api
+      .get<RangeAnalysisResponse>(`/api/stocks/${symbol}/range-analysis`, {
+        params: { start_date: startDate, end_date: endDate },
+      })
+      .then(r => r.data),
 }

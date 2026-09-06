@@ -5,20 +5,11 @@ import { type LiveQuote } from '../../hooks/useRealtimeQuotes'
 import { SeverityBadge } from '../common/SeverityBadge'
 import { FreshnessBadge } from '../common/FreshnessBadge'
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react'
+import { formatPrice, formatChangePct } from '../../utils/format'
 
 interface Props {
   stocks: DashboardStock[]
   liveQuotes?: Record<string, LiveQuote>
-}
-
-function fmt(n?: number | null, decimals = 2) {
-  if (n === undefined || n === null) return '—'
-  return n.toFixed(decimals)
-}
-
-function fmtChange(pct?: number | null) {
-  if (pct === undefined || pct === null) return '—'
-  return `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`
 }
 
 /** Flashes green/red when the price changes */
@@ -40,7 +31,7 @@ function useFlash(value: number | undefined | null) {
   return flash
 }
 
-function PriceCell({ price, changePct }: { price: number; changePct?: number | null }) {
+function PriceCell({ symbol, price, changePct }: { symbol: string; price: number; changePct?: number | null }) {
   const flash = useFlash(price)
   const changeClass = changePct == null ? 'neutral' : changePct >= 0 ? 'positive' : 'negative'
   const Icon = changePct == null ? Minus : changePct >= 0 ? TrendingUp : TrendingDown
@@ -68,7 +59,7 @@ function PriceCell({ price, changePct }: { price: number; changePct?: number | n
             : 'var(--text-primary)',
         }}
       >
-        ${fmt(price)}
+        {formatPrice(price, symbol)}
       </span>
       <div>
         <span
@@ -82,7 +73,7 @@ function PriceCell({ price, changePct }: { price: number; changePct?: number | n
           }}
         >
           <Icon size={11} />
-          {fmtChange(changePct)}
+          {formatChangePct(changePct)}
         </span>
       </div>
     </td>
@@ -119,7 +110,7 @@ export function WatchlistTable({ stocks, liveQuotes = {} }: Props) {
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{s.company_name}</div>
                 </td>
 
-                <PriceCell price={price} changePct={changePct} />
+                <PriceCell symbol={s.symbol} price={price} changePct={changePct} />
 
                 <td style={{
                   textAlign: 'right',

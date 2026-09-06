@@ -108,7 +108,8 @@ def run_change_detection(
             latest_snap = (
                 db.query(MarketSnapshot)
                 .filter(MarketSnapshot.stock_id == stock.id)
-                .order_by(MarketSnapshot.collected_at.desc())
+                .order_by(MarketSnapshot.timestamp.desc())
+
                 .first()
             )
 

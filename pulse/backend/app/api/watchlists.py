@@ -116,12 +116,26 @@ def add_stock(
     stock = db.query(Stock).filter(Stock.symbol == symbol_upper).first()
 
     if not stock:
-        # Auto-register real stock from yfinance
+        # Auto-register real stock from yfinance — validate it exists first
         from app.services.market.provider import yfinance_provider
         info = yfinance_provider.get_company_info(symbol_upper)
+        company_name = info.get("company_name", "")
+
+        # Reject if yfinance returns no real company name (symbol doesn't exist)
+        if not company_name or company_name == symbol_upper:
+            # Try fetching a quote as a secondary check
+            quote = yfinance_provider.get_quote(symbol_upper)
+            if not quote:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Symbol '{symbol_upper}' not found on any exchange. Please check the ticker (e.g. RELIANCE.NS for NSE, AAPL for NASDAQ)."
+                )
+            # Use symbol as company name if quote exists but info is limited
+            company_name = symbol_upper
+
         stock = Stock(
             symbol=symbol_upper,
-            company_name=info.get("company_name", symbol_upper),
+            company_name=company_name,
             exchange=info.get("exchange", "NASDAQ"),
             sector=info.get("sector"),
             sector_etf=info.get("sector_etf", "SPY"),
@@ -136,17 +150,19 @@ def add_stock(
         WatchlistStock.stock_id == stock.id,
     ).first()
     if exists:
-        raise HTTPException(status_code=409, detail="Stock already in watchlist")
+        raise HTTPException(status_code=409, detail=f"{stock.symbol} is already in your watchlist")
 
     ws = WatchlistStock(watchlist_id=wl.id, stock_id=stock.id)
     db.add(ws)
     db.commit()
 
-    # Fetch live quote immediately for newly added stock
-    market_service.get_quote(symbol_upper, db, force_live=True)
+    # Fetch live quote in background for newly added stock (best-effort)
+    try:
+        market_service.get_quote(symbol_upper, db, force_live=True)
+    except Exception:
+        pass  # Don't fail the add if quote fetch fails
 
     return {"message": f"{stock.symbol} added to {wl.name}"}
-
 
 
 @router.delete("/{watchlist_id}/stocks/{symbol}", status_code=204)
